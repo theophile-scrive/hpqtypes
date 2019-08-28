@@ -164,4 +164,3 @@ pqt_put_null(PGtypeArgs *args)
 	args->put.out = NULL;
 	return 0;
 }
-

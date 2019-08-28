@@ -534,5 +534,3 @@ int pqt_get_jsonb(PGtypeArgs *args);
 }
 #endif
 #endif
-
-

@@ -140,6 +140,9 @@ library
                      , containers        >= 0.5.0.0
                      , exceptions        >= 0.6
                      , text-show         >= 2
+                     , uuid             >= 1.3      && < 1.4
+                     , hex-text
+                     , postgresql-binary
 
   hs-source-dirs:    src
 
@@ -149,7 +152,7 @@ library
   include-dirs:      libpqtypes/src
   extra-libraries:   pq
 
-  cc-options:        -DHAVE_CONFIG_H -D_GNU_SOURCE -D_REENTRANT -std=gnu99 -fsigned-char -fno-strict-aliasing -Wall -Wextra
+  cc-options:        -O0 -g -DHAVE_CONFIG_H -D_GNU_SOURCE -D_REENTRANT -std=gnu99 -fsigned-char -fno-strict-aliasing -Wall -Wextra
 
   c-sources:           libpqtypes/src/array.c
                      , libpqtypes/src/datetime.c
@@ -225,6 +228,7 @@ test-suite hpqtypes-tests
                      , transformers-base >= 0.4
                      , unordered-containers
                      , vector
+                     , uuid
 
   default-language:  Haskell2010
   default-extensions: BangPatterns

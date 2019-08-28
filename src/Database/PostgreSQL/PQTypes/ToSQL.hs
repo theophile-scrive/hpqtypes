@@ -2,6 +2,7 @@ module Database.PostgreSQL.PQTypes.ToSQL (
     ParamAllocator(..)
   , ToSQL(..)
   , putAsPtr
+  , UuidWords (..)
   ) where
 
 import Data.ByteString.Unsafe
@@ -9,14 +10,21 @@ import Data.Int
 import Data.Text.Encoding
 import Data.Time
 import Data.Word
+import Data.Bits
 import Foreign.C
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
 import Foreign.Storable
+import Text.Hex
+import Control.Monad
+import qualified Data.ByteString as BS0
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Lazy as TL
+import qualified Data.UUID as U
+import qualified PostgreSQL.Binary.Encoding as PE
 
 import Database.PostgreSQL.PQTypes.Format
 import Database.PostgreSQL.PQTypes.Internal.C.Interface
@@ -108,6 +116,89 @@ instance ToSQL TL.Text where
 instance ToSQL String where
   type PQDest String = PGbytea
   toSQL = toSQL . T.pack
+
+-- instance ToSQL U.UUID where
+--   type PQDest U.UUID = CString
+--   toSQL uuid _ cont =
+--     BS.useAsCString buf $ \cstr ->
+--       putAsPtr cstr cont
+--     where
+--       uuidToWord32s :: U.UUID -> [Word32]
+--       uuidToWord32s uuid =
+--         let (w1, w2, w3, w4) = U.toWords uuid in
+--           [w1, w2, w3, w4]
+
+--       word32ToWord8 :: Word32 -> [Word8]
+--       word32ToWord8 w =
+--         [ fromIntegral (w `shiftR` 24)
+--         , fromIntegral (w `shiftR` 16)
+--         , fromIntegral (w `shiftR` 8)
+--         , fromIntegral w
+--         ]
+
+--       buf :: BS.ByteString
+--       buf = BS0.pack $ join $ word32ToWord8 <$> uuidToWord32s uuid
+
+-- instance ToSQL U.UUID where
+--   type PQDest U.UUID = PGbytea
+--   toSQL =
+--     toSQL . U.toString
+
+  -- toSQL uuid =
+  --   let str = U.toString uuid in
+  --     toSQL $ "'" <> str <> "'"
+
+-- instance ToSQL U.UUID where
+--   type PQDest U.UUID = Ptr UuidWords
+--   toSQL uuid _ cont = do
+--     let words :: UuidWords = uuidToWords uuid
+--     putStrLn $ "ToSQL words: " <> show words
+--     alloca $ \(wordsPtr :: Ptr UuidWords) -> do
+--       poke wordsPtr words
+--       putAsPtr wordsPtr cont
+--      where
+--       uuidToWords :: U.UUID -> UuidWords
+--       uuidToWords uuid = UuidWords w1 w2 w3 w4
+--        where
+--         (w1, w2, w3, w4) = U.toWords uuid
+
+instance ToSQL U.UUID where
+  type PQDest U.UUID = UuidWords
+  toSQL uuid _ cont = do
+    let words :: UuidWords = uuidToWords uuid
+    putStrLn $ "ToSQL words: " <> show words
+    putAsPtr words cont
+     where
+      uuidToWords :: U.UUID -> UuidWords
+      uuidToWords uuid = UuidWords w1 w2 w3 w4
+       where
+        (w1, w2, w3, w4) = U.toWords uuid
+
+-- instance ToSQL U.UUID where
+--   type PQDest U.UUID = Ptr UuidWords
+--   toSQL uuid _ cont = do
+--     let words :: UuidWords = uuidToWords uuid
+--     putStrLn $ "ToSQL words: " <> show words
+--     alloca $ \(wordsPtr :: Ptr UuidWords) -> do
+--       poke wordsPtr words
+--       putAsPtr wordsPtr cont
+--      where
+--       uuidToWords :: U.UUID -> UuidWords
+--       uuidToWords uuid = UuidWords w1 w2 w3 w4
+--        where
+--         (w1, w2, w3, w4) = U.toWords uuid
+
+-- instance ToSQL U.UUID where
+--   type PQDest U.UUID = CString
+--   toSQL uuid _ cont = do
+    -- let buf = BS.pack $ U.toString uuid
+    -- putStrLn $ "raw ToSQL uuid: " <> (T.unpack $ encodeHex buf)
+    -- unsafeUseAsCStringLen buf $ \(cstr, _) ->
+    --   putAsPtr cstr cont
+
+    -- let buf = U.toASCIIBytes uuid
+    -- BS.useAsCString buf $ \cstr ->
+    --   putAsPtr cstr cont
 
 -- BYTEA
 

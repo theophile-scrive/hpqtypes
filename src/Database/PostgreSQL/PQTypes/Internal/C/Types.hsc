@@ -30,11 +30,13 @@ module Database.PostgreSQL.PQTypes.Internal.C.Types (
   , PGregisterType(..)
   , PGarray(..)
   , PGbytea(..)
+  , UuidWords(..)
   , PGdate(..)
   , PGtime(..)
   , PGtimestamp(..)
   ) where
 
+import Data.Word
 import Data.ByteString.Unsafe
 import Foreign.C
 import Foreign.ForeignPtr
@@ -235,6 +237,48 @@ instance Storable PGbytea where
     #{poke PGbytea, data} ptr pgByteaData
 
 ----------------------------------------
+
+data UuidWords = UuidWords {
+  w1 :: !Word32,
+  w2 :: !Word32,
+  w3 :: !Word32,
+  w4 :: !Word32
+} deriving Show
+
+instance Storable UuidWords where
+  sizeOf _ = 16
+  alignment _ = 4
+
+  peekByteOff p off =
+    UuidWords
+      <$> peekByteOff p off
+      <*> peekByteOff p (off+4)
+      <*> peekByteOff p (off+8)
+      <*> peekByteOff p (off+12)
+
+  pokeByteOff p off (UuidWords w1 w2 w3 w4) =
+    do
+      pokeByteOff p off w1
+      pokeByteOff p (off+4) w2
+      pokeByteOff p (off+8) w3
+      pokeByteOff p (off+12) w4
+
+-- instance Storable UuidWords where
+--   sizeOf _ = #{size UuidWords}
+--   alignment _ = #{alignment UuidWords}
+
+--   peek ptr =
+--     UuidWords
+--       <$> #{peek UuidWords, w1}
+--       <$> #{peek UuidWords, w2}
+--       <$> #{peek UuidWords, w3}
+--       <$> #{peek UuidWords, w4}
+
+--   poke ptr (UuidWords w1 w2 w3 w4) = do
+--     #{poke UuidWords, w1} ptr w1
+--     #{poke UuidWords, w2} ptr w2
+--     #{poke UuidWords, w3} ptr w3
+--     #{poke UuidWords, w4} ptr w4
 
 data PGdate = PGdate {
   pgDateIsBC :: !CInt

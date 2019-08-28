@@ -28,6 +28,7 @@ import Test.QuickCheck.Gen
 import TextShow
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
+import qualified Data.UUID as U
 
 import Data.Monoid.Utils
 import Database.PostgreSQL.PQTypes
@@ -420,7 +421,20 @@ putGetTest td n t eq = testCase
                        runTestEnv td defaultTransactionSettings .
                        runTimes 1000 $ do
   v :: t <- randomValue n
-  --liftBase . putStrLn . show $ v
+  liftBase . putStrLn . show $ v
+  runSQL_ $ "SELECT" <?> v
+  v' <- fetchOne runIdentity
+  assertEqual "Value doesn't change after getting through database" v v' eq
+
+putGetTest' :: TestData -> Int -> U.UUID -> (U.UUID -> U.UUID -> Bool) -> Test
+putGetTest' td n t eq = testCase
+                       ("Putting value of type"
+                         <+> show (typeOf t)
+                         <+> "through database doesn't change its value") .
+                       runTestEnv td defaultTransactionSettings .
+                       runTimes 1000 $ do
+  v :: U.UUID <- randomValue n
+  -- liftBase . putStrLn . show $ v
   runSQL_ $ "SELECT" <?> v
   v' <- fetchOne runIdentity
   assertEqual "Value doesn't change after getting through database" v v' eq
@@ -467,118 +481,123 @@ tests td = [
   , notifyTest td
   , queryInterruptionTest td
   , cursorTest td
+
+  , putGetTest' td 1000 (u::U.UUID) (==)
+  , rowTest td (u::(Int16, Int32, U.UUID))
+
   ----------------------------------------
-  , transactionTest td ReadCommitted
-  , transactionTest td RepeatableRead
-  , transactionTest td Serializable
-  ----------------------------------------
-  , nullTest td (u::Int16)
-  , nullTest td (u::Int32)
-  , nullTest td (u::Int64)
-  , nullTest td (u::Float)
-  , nullTest td (u::Double)
-  , nullTest td (u::Bool)
-  , nullTest td (u::AsciiChar)
-  , nullTest td (u::Word8)
-  , nullTest td (u::String)
-  , nullTest td (u::BS.ByteString)
-  , nullTest td (u::T.Text)
-  , nullTest td (u::JSON Value)
-  , nullTest td (u::JSONB Value)
-  , nullTest td (u::XML)
-  , nullTest td (u::Interval)
-  , nullTest td (u::Day)
-  , nullTest td (u::TimeOfDay)
-  , nullTest td (u::LocalTime)
-  , nullTest td (u::UTCTime)
-  , nullTest td (u::Array1 Int32)
-  , nullTest td (u::Array2 Double)
-  , nullTest td (u::Composite Simple)
-  , nullTest td (u::CompositeArray1 Simple)
-  , nullTest td (u::CompositeArray2 Simple)
-  ----------------------------------------
-  , putGetTest td 100 (u::Int16) (==)
-  , putGetTest td 100 (u::Int32) (==)
-  , putGetTest td 100 (u::Int64) (==)
-  , putGetTest td 10000 (u::Float) (==)
-  , putGetTest td 10000 (u::Double) (==)
-  , putGetTest td 100 (u::Bool) (==)
-  , putGetTest td 100 (u::AsciiChar) (==)
-  , putGetTest td 100 (u::Word8) (==)
-  , putGetTest td 1000 (u::String0) (==)
-  , putGetTest td 1000 (u::BS.ByteString) (==)
-  , putGetTest td 1000 (u::T.Text) (==)
-  , putGetTest td 50 (u::JSON Value) (==)
-  , putGetTest td 50 (u::JSONB Value) (==)
-  , putGetTest td 20 (u::Array1 (JSON Value)) (==)
-  , putGetTest td 20 (u::Array1 (JSONB Value)) (==)
-  , putGetTest td 50 (u::Interval) (==)
-  , putGetTest td 1000000 (u::Day) (==)
-  , putGetTest td 10000 (u::TimeOfDay) eqTOD
-  , putGetTest td 500000 (u::LocalTime) eqLT
-  , putGetTest td 500000 (u::UTCTime) eqUTCT
-  , putGetTest td 1000 (u::Array1 Int32) (==)
-  , putGetTest td 1000 (u::Array2 Double) eqArray2
-  , putGetTest td 100000 (u::Composite Simple) (==)
-  , putGetTest td 1000 (u::CompositeArray1 Simple) (==)
-  , putGetTest td 1000 (u::CompositeArray2 Simple) eqCompositeArray2
-  , putGetTest td 100000 (u::Composite Nested) (==)
-  , putGetTest td 1000 (u::CompositeArray1 Nested) (==)
-  , putGetTest td 1000 (u::CompositeArray2 Nested) eqCompositeArray2
-  ----------------------------------------
-  , rowTest td (u::Identity Int16)
-  , rowTest td (u::Identity T.Text :*: (Double, Int16))
-  , rowTest td (u::(T.Text, Double) :*: Identity Int16)
-  , rowTest td (u::(Int16, T.Text, Int64, Double) :*: Identity Bool :*: (String0, AsciiChar))
-  , rowTest td (u::(Int16, Int32))
-  , rowTest td (u::(Int16, Int32, Int64))
-  , rowTest td (u::(Int16, Int32, Int64, Float))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day))
-  , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32))
+  -- , transactionTest td ReadCommitted
+  -- , transactionTest td RepeatableRead
+  -- , transactionTest td Serializable
+  -- ----------------------------------------
+  -- , nullTest td (u::Int16)
+  -- , nullTest td (u::Int32)
+  -- , nullTest td (u::Int64)
+  -- , nullTest td (u::Float)
+  -- , nullTest td (u::Double)
+  -- , nullTest td (u::Bool)
+  -- , nullTest td (u::AsciiChar)
+  -- , nullTest td (u::Word8)
+  -- , nullTest td (u::String)
+  -- , nullTest td (u::BS.ByteString)
+  -- , nullTest td (u::T.Text)
+  -- , nullTest td (u::U.UUID)
+  -- , nullTest td (u::JSON Value)
+  -- , nullTest td (u::JSONB Value)
+  -- , nullTest td (u::XML)
+  -- , nullTest td (u::Interval)
+  -- , nullTest td (u::Day)
+  -- , nullTest td (u::TimeOfDay)
+  -- , nullTest td (u::LocalTime)
+  -- , nullTest td (u::UTCTime)
+  -- , nullTest td (u::Array1 Int32)
+  -- , nullTest td (u::Array2 Double)
+  -- , nullTest td (u::Composite Simple)
+  -- , nullTest td (u::CompositeArray1 Simple)
+  -- , nullTest td (u::CompositeArray2 Simple)
+  -- ----------------------------------------
+  -- , putGetTest td 100 (u::Int16) (==)
+  -- , putGetTest td 100 (u::Int32) (==)
+  -- , putGetTest td 100 (u::Int64) (==)
+  -- , putGetTest td 10000 (u::Float) (==)
+  -- , putGetTest td 10000 (u::Double) (==)
+  -- , putGetTest td 100 (u::Bool) (==)
+  -- , putGetTest td 100 (u::AsciiChar) (==)
+  -- , putGetTest td 100 (u::Word8) (==)
+  -- , putGetTest td 1000 (u::String0) (==)
+  -- , putGetTest td 1000 (u::BS.ByteString) (==)
+  -- , putGetTest td 1000 (u::T.Text) (==)
+  -- , putGetTest td 50 (u::JSON Value) (==)
+  -- , putGetTest td 50 (u::JSONB Value) (==)
+  -- , putGetTest td 20 (u::Array1 (JSON Value)) (==)
+  -- , putGetTest td 20 (u::Array1 (JSONB Value)) (==)
+  -- , putGetTest td 50 (u::Interval) (==)
+  -- , putGetTest td 1000000 (u::Day) (==)
+  -- , putGetTest td 10000 (u::TimeOfDay) eqTOD
+  -- , putGetTest td 500000 (u::LocalTime) eqLT
+  -- , putGetTest td 500000 (u::UTCTime) eqUTCT
+  -- , putGetTest td 1000 (u::Array1 Int32) (==)
+  -- , putGetTest td 1000 (u::Array2 Double) eqArray2
+  -- , putGetTest td 100000 (u::Composite Simple) (==)
+  -- , putGetTest td 1000 (u::CompositeArray1 Simple) (==)
+  -- , putGetTest td 1000 (u::CompositeArray2 Simple) eqCompositeArray2
+  -- , putGetTest td 100000 (u::Composite Nested) (==)
+  -- , putGetTest td 1000 (u::CompositeArray1 Nested) (==)
+  -- , putGetTest td 1000 (u::CompositeArray2 Nested) eqCompositeArray2
+  -- ----------------------------------------
+  -- , rowTest td (u::Identity Int16)
+  -- , rowTest td (u::Identity T.Text :*: (Double, Int16))
+  -- , rowTest td (u::(T.Text, Double) :*: Identity Int16)
+  -- , rowTest td (u::(Int16, T.Text, Int64, Double) :*: Identity Bool :*: (String0, AsciiChar))
+  -- , rowTest td (u::(Int16, Int32))
+  -- , rowTest td (u::(Int16, Int32, Int64))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, U.UUID))
+  -- , rowTest td (u::(Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, Day, Array1 Int32, Composite Simple, CompositeArray1 Simple, Composite Nested, CompositeArray1 Nested, Int16, Int32, Int64, Float, Double, Bool, AsciiChar, Word8, String0, BS.ByteString, T.Text, BS.ByteString, U.UUID, Day))
   ]
   where
     u = undefined

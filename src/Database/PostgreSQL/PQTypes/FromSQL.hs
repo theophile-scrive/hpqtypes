@@ -8,15 +8,22 @@ import Data.Text.Encoding
 import Data.Time
 import Data.Word
 import Foreign.C
+import Foreign.Ptr
 import Foreign.Storable
+import Text.Hex
 import qualified Control.Exception as E
 import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Unsafe as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
+import qualified Data.UUID as U
+import qualified PostgreSQL.Binary.Decoding as PD
+import qualified PostgreSQL.Binary.Data as PD
 
 import Database.PostgreSQL.PQTypes.Format
 import Database.PostgreSQL.PQTypes.Internal.C.Types
+import Database.PostgreSQL.PQTypes.Internal.Error
 import Database.PostgreSQL.PQTypes.Internal.Utils
 
 -- | Class which represents \"from SQL (libpqtypes)
@@ -94,6 +101,58 @@ instance FromSQL TL.Text where
 instance FromSQL String where
   type PQBase String = PGbytea
   fromSQL mbytea = T.unpack <$> fromSQL mbytea
+
+-- instance FromSQL U.UUID where
+--   type PQBase U.UUID = PGbytea
+--   fromSQL mbytea = do
+--     mUuid <- U.fromString <$> fromSQL mbytea
+--     case mUuid of
+--       Nothing -> E.throwIO $ UuidParseError
+--       Just uuid -> return uuid
+
+-- instance FromSQL U.UUID where
+--   type PQBase U.UUID = UuidWords
+--   fromSQL Nothing = unexpectedNULL
+--   fromSQL (Just words) = do
+--     putStrLn $ "FromSQL words: " <> show words
+--     return $ uuidFromWords words
+--      where
+--       uuidFromWords :: UuidWords -> U.UUID
+--       uuidFromWords (UuidWords w1 w2 w3 w4) = U.fromWords w1 w2 w3 w4
+
+instance FromSQL U.UUID where
+  type PQBase U.UUID = Ptr UuidWords
+  fromSQL Nothing = unexpectedNULL
+  fromSQL (Just wordsPtr) = do
+    words <- peek wordsPtr
+    putStrLn $ "FromSQL words: " <> show words
+    return $ uuidFromWords words
+     where
+      uuidFromWords :: UuidWords -> U.UUID
+      uuidFromWords (UuidWords w1 w2 w3 w4) = U.fromWords w1 w2 w3 w4
+
+-- instance FromSQL U.UUID where
+--   type PQBase U.UUID = CString
+--   fromSQL (Just cstr) = do
+--     buf <- BS.packCString cstr
+--     putStrLn $ "raw FromSQL uuid: " <> (T.unpack $ encodeHex buf)
+--     case U.fromString $ BS.unpack buf of
+--       Nothing -> E.throwIO $ UuidParseError
+--       Just uuid -> return uuid
+    -- case PD.valueParser PD.uuid buf of
+    --   Left err -> do
+    --     putStrLn $ "parse error: " <> (T.unpack err)
+    --     E.throwIO $ UuidParseError
+    --   Right uuid -> return uuid
+    -- case U.fromASCIIBytes buf of
+    --   Nothing -> E.throwIO $ UuidParseError
+    --   Just uuid -> return uuid
+
+    -- str <- peekCString cstr
+    -- putStrLn $ "raw uuid: " <> str
+    -- case U.fromString str of
+    --   Nothing -> E.throwIO $ UuidParseError
+    --   Just uuid -> return uuid
 
 -- BYTEA
 

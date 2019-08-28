@@ -470,4 +470,3 @@ PQlocalTZInfo(time_t *t, int *gmtoff, int *isdst, char **tzabbrp);
 }
 #endif
 #endif /* !LIBPQTYPES_H */
-
