@@ -2,7 +2,6 @@ module Database.PostgreSQL.PQTypes.FromSQL (
     FromSQL(..)
   ) where
 
-import Data.Binary.Get
 import Data.Int
 import Data.Ratio
 import Data.Text.Encoding

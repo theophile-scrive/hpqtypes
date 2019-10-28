@@ -254,41 +254,28 @@ instance Storable PGuuid where
   sizeOf _ = 16
   alignment _ = 4
 
-  -- peekByteOff p off =
-  --   PGuuid
-  --     <$> peekByteOff p off
-  --     <*> peekByteOff p (off+4)
-  --     <*> peekByteOff p (off+8)
-  --     <*> peekByteOff p (off+12)
-
-  -- pokeByteOff p off (PGuuid w1 w2 w3 w4) =
-  --   do
-  --     pokeByteOff p off w1
-  --     pokeByteOff p (off+4) w2
-  --     pokeByteOff p (off+8) w3
-  --     pokeByteOff p (off+12) w4
-
   peekByteOff p off =
     PGuuid
       <$> peekWord32Off p off
       <*> peekWord32Off p (off+4)
       <*> peekWord32Off p (off+8)
       <*> peekWord32Off p (off+12)
-     where
+    where
       peekWord8Off :: Ptr a -> Int -> IO Word8
       peekWord8Off = peekByteOff
 
       peekWord32Off :: Ptr a -> Int -> IO Word32
-      peekWord32Off p off = do
-        b1 <- fromIntegral <$> peekWord8Off p off
-        b2 <- fromIntegral <$> peekWord8Off p (off+1)
-        b3 <- fromIntegral <$> peekWord8Off p (off+2)
-        b4 <- fromIntegral <$> peekWord8Off p (off+3)
+      peekWord32Off p' off' = do
+        b1 <- fromIntegral <$> peekWord8Off p' off'
+        b2 <- fromIntegral <$> peekWord8Off p' (off'+1)
+        b3 <- fromIntegral <$> peekWord8Off p' (off'+2)
+        b4 <- fromIntegral <$> peekWord8Off p' (off'+3)
         return $
           (b1 `shiftL` 24) .|.
           (b2 `shiftL` 16) .|.
           (b3 `shiftL` 8) .|.
           b4
+  {-# INLINE peekByteOff #-}
 
   pokeByteOff p off (PGuuid w1 w2 w3 w4) =
     do
@@ -296,16 +283,38 @@ instance Storable PGuuid where
       pokeWord32Off p (off+4) w2
       pokeWord32Off p (off+8) w3
       pokeWord32Off p (off+12) w4
-     where
-      pokeWord8Off :: Ptr a -> Int -> Word8 -> IO ()
-      pokeWord8Off = pokeByteOff
+      where
+        pokeWord8Off :: Ptr a -> Int -> Word8 -> IO ()
+        pokeWord8Off = pokeByteOff
 
-      pokeWord32Off :: Ptr a -> Int -> Word32 -> IO ()
-      pokeWord32Off p off word = do
-        pokeWord8Off p off $ fromIntegral (word `shiftR` 24)
-        pokeWord8Off p (off+1) $ fromIntegral (word `shiftR` 16)
-        pokeWord8Off p (off+2) $ fromIntegral (word `shiftR` 8)
-        pokeWord8Off p (off+3) $ fromIntegral word
+        pokeWord32Off :: Ptr a -> Int -> Word32 -> IO ()
+        pokeWord32Off p' off' word = do
+          pokeWord8Off p' off' $ fromIntegral (word `shiftR` 24)
+          pokeWord8Off p' (off'+1) $ fromIntegral (word `shiftR` 16)
+          pokeWord8Off p' (off'+2) $ fromIntegral (word `shiftR` 8)
+          pokeWord8Off p' (off'+3) $ fromIntegral word
+  {-# INLINE pokeByteOff #-}
+
+
+-- putWord32be :: Ptr a -> Word32 -> IO ()
+-- putWord32be p w = do
+--   poke p               (fromIntegral (shiftL w 24) :: Word8)
+--   poke (p `plusPtr` 1) (fromIntegral (shiftL w 16) :: Word8)
+--   poke (p `plusPtr` 2) (fromIntegral (shiftL w  8) :: Word8)
+--   poke (p `plusPtr` 3) (fromIntegral (w)           :: Word8)
+-- {-# INLINE putWord32be #-}
+
+-- getWord32be :: Ptr a -> IO Word32
+-- getWord32be p = do
+--   b0 <- fromIntegral <$> (p `peekElemOff` 0)
+--   b1 <- fromIntegral <$> (p `peekElemOff` 1)
+--   b2 <- fromIntegral <$> (p `peekElemOff` 2)
+--   b3 <- fromIntegral <$> (p `peekElemOff` 3)
+--   return $! (b0 `shiftL` 24) .|.
+--             (b1 `shiftL` 16) .|.
+--             (b2 `shiftL`  8) .|.
+--             (b3 )
+-- {-# INLINE getWord32be #-}
 
 data PGdate = PGdate {
   pgDateIsBC :: !CInt

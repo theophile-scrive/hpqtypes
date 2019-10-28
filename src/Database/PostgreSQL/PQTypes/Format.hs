@@ -105,7 +105,6 @@ instance PQFormat TL.Text where
   pqFormat = BS.pack "%btext"
 
 instance PQFormat UUID where
-  -- pqFormat = BS.pack "%btext"
   pqFormat = BS.pack "%uuid"
 
 -- BYTEA

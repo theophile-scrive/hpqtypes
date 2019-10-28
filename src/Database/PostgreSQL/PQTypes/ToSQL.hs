@@ -5,7 +5,6 @@ module Database.PostgreSQL.PQTypes.ToSQL (
   , PGuuid (..)
   ) where
 
-import Data.Binary.Put
 import Data.ByteString.Unsafe
 import Data.Int
 import Data.Text.Encoding
