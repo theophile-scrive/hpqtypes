@@ -421,7 +421,7 @@ putGetTest td n t eq = testCase
                        runTestEnv td defaultTransactionSettings .
                        runTimes 1000 $ do
   v :: t <- randomValue n
-  -- liftBase . putStrLn . show $ v
+  --liftBase . putStrLn . show $ v
   runSQL_ $ "SELECT" <?> v
   v' <- fetchOne runIdentity
   assertEqual "Value doesn't change after getting through database" v v' eq
@@ -483,7 +483,6 @@ tests td = [
   , queryInterruptionTest td
   , cursorTest td
   , uuidTest td
-
   ------------------------------------
   , transactionTest td ReadCommitted
   , transactionTest td RepeatableRead

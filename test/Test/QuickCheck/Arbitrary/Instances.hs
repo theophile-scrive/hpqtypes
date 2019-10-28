@@ -52,7 +52,6 @@ instance Arbitrary BS.ByteString where
 instance Arbitrary T.Text where
   arbitrary = T.pack . unString0 <$> arbitrary
 
-
 uuidFromWords :: (Word32, Word32, Word32, Word32) -> U.UUID
 uuidFromWords (a,b,c,d) = U.fromWords a b c d
 

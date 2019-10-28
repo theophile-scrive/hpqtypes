@@ -119,18 +119,6 @@ instance ToSQL U.UUID where
       (w1, w2, w3, w4) ->
         putAsPtr $ PGuuid w1 w2 w3 w4
 
--- instance ToSQL U.UUID where
---   -- pqt_put_uuid expects a *char consist of 16 bytes of data
---   type PQDest U.UUID = CString
---   toSQL uuid _ conv =
---     unsafeUseAsCString (BSL.toStrict (runPut putBuf)) $ \cstr ->
---       putAsPtr cstr conv
---    where
---     putBuf :: Put
---     putBuf = case U.toWords uuid of
---       (w1, w2, w3, w4) ->
---         putWord32be w1 <> putWord32be w2 <> putWord32be w3 <> putWord32be w4
-
 -- BYTEA
 
 instance ToSQL BS.ByteString where

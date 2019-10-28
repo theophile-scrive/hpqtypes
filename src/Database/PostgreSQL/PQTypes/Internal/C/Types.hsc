@@ -295,27 +295,6 @@ instance Storable PGuuid where
           pokeWord8Off p' (off'+3) $ fromIntegral word
   {-# INLINE pokeByteOff #-}
 
-
--- putWord32be :: Ptr a -> Word32 -> IO ()
--- putWord32be p w = do
---   poke p               (fromIntegral (shiftL w 24) :: Word8)
---   poke (p `plusPtr` 1) (fromIntegral (shiftL w 16) :: Word8)
---   poke (p `plusPtr` 2) (fromIntegral (shiftL w  8) :: Word8)
---   poke (p `plusPtr` 3) (fromIntegral (w)           :: Word8)
--- {-# INLINE putWord32be #-}
-
--- getWord32be :: Ptr a -> IO Word32
--- getWord32be p = do
---   b0 <- fromIntegral <$> (p `peekElemOff` 0)
---   b1 <- fromIntegral <$> (p `peekElemOff` 1)
---   b2 <- fromIntegral <$> (p `peekElemOff` 2)
---   b3 <- fromIntegral <$> (p `peekElemOff` 3)
---   return $! (b0 `shiftL` 24) .|.
---             (b1 `shiftL` 16) .|.
---             (b2 `shiftL`  8) .|.
---             (b3 )
--- {-# INLINE getWord32be #-}
-
 data PGdate = PGdate {
   pgDateIsBC :: !CInt
 , pgDateYear :: !CInt

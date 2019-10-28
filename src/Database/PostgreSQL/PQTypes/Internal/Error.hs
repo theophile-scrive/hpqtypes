@@ -8,7 +8,6 @@ module Database.PostgreSQL.PQTypes.Internal.Error (
   , ArrayItemError(..)
   , InvalidValue(..)
   , RangeError(..)
-  , UuidParseError(..)
   , ArrayDimensionMismatch(..)
   , RowLengthMismatch(..)
   , AffectedRowsMismatch(..)
@@ -91,9 +90,6 @@ data RangeError t = RangeError {
 , reValue :: t
 } deriving (Eq, Ord, Show)
 
-data UuidParseError = UuidParseError
-  deriving (Eq, Ord, Show)
-
 -- | Array dimenstion mismatch error.
 data ArrayDimensionMismatch = ArrayDimensionMismatch {
 -- | Dimension expected by the library.
@@ -126,7 +122,6 @@ instance E.Exception HPQTypesError
 instance E.Exception LibPQError
 instance E.Exception ConversionError
 instance E.Exception ArrayItemError
-instance E.Exception UuidParseError
 instance (Show t, Typeable t) => E.Exception (InvalidValue t)
 instance (Show t, Typeable t) => E.Exception (RangeError t)
 instance E.Exception ArrayDimensionMismatch

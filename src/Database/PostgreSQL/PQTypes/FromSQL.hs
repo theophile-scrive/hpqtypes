@@ -97,18 +97,6 @@ instance FromSQL String where
   type PQBase String = PGbytea
   fromSQL mbytea = T.unpack <$> fromSQL mbytea
 
--- instance FromSQL U.UUID where
---   -- pqt_get_uuid expects **char consist of 16 bytes of data
---   type PQBase U.UUID = CString
---   fromSQL Nothing = unexpectedNULL
---   fromSQL (Just cstr) = do
---     buf <- BS.packCStringLen (cstr, 16)
---     return $ runGet getUuid $ BSL.fromStrict buf
---      where
---       getUuid :: Get U.UUID
---       getUuid = U.fromWords <$>
---         getWord32be <*> getWord32be <*> getWord32be <*> getWord32be
-
 instance FromSQL U.UUID where
   -- pqt_get_uuid expects **char consist of 16 bytes of data
   type PQBase U.UUID = Ptr PGuuid
